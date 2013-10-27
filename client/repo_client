@@ -1,0 +1,397 @@
+# Copyright 2013 Julian Phillips.  All rights reserved.
+# Use of this source code is governed by a BSD-style
+# license that can be found in the LICENSE file.
+
+#!/usr/bin/env python
+
+import urllib2
+import json
+import optparse
+import sys
+import httplib
+import os
+import subprocess
+import socket
+
+
+ver_num = (0, 3, 6)
+version = "%%prog v%d.%d.%d" % ver_num
+
+
+commands = {}
+aliases = {}
+aliased = {}
+
+
+def url(rest):
+    rest = rest.lstrip('/')
+    return "http://{}:{}/{}".format(options.host, options.port, rest)
+
+class CommandMeta (type):
+    def __new__(cls, name, bases, klassDict):
+        theKlass = type.__new__(cls, name, bases, klassDict)
+        for cmd in theKlass._cmd:
+            commands[cmd] = theKlass
+        if len(theKlass._cmd) > 1:
+            main_cmd = theKlass._cmd[0]
+            aliased[main_cmd] = theKlass._cmd[1:]
+            for cmd in theKlass._cmd[1:]:
+                aliases[cmd] = main_cmd
+        return theKlass
+
+
+class Command (object):
+    '''The base command class.  This should never be visible to the user.'''
+    __metaclass__ = CommandMeta
+
+    _cmd = []
+    _args_usage = ''
+
+    def __init__(self, options, args):
+        self.global_options = options
+
+        usage = "%%prog [global-options] %s [options] %s" % (self._cmd[0],
+                                                             self._args_usage)
+
+        if self.__doc__ is None:
+            description = ''
+        else:
+            description = self.__doc__.replace('\n    ', ' ')
+
+        self.parser = optparse.OptionParser(usage=usage,
+                                            description=description)
+        self.setup_option_parser()
+
+        self.options, self.args = self.parser.parse_args(args)
+
+        if self.run():
+            sys.exit(0)
+        else:
+            sys.exit(1)
+
+    def usage(self, msg):
+        self.parser.error(msg)
+
+    def setup_option_parser(self):
+        pass
+
+    def run(self):
+        return False
+
+
+class Create(Command):
+    """Create a new repo on the server"""
+
+    _cmd = ["create"]
+
+    def setup_option_parser(self):
+        self.parser.add_option('-o', '--origin', default='<origin>')
+        self.parser.add_option('-l', '--label', default='<label>')
+        self.parser.add_option('-d', '--description', default='<description>')
+        self.parser.add_option('-c', '--codename', default=None)
+        self.parser.add_option('-s', '--sign', action='store_true', default=False)
+
+    def run(self):
+        if self.options.codename is None:
+            self.options.codename = subprocess.check_output(['lsb_release', '-sc']).strip()
+        rawMsg = {
+            'Origin': self.options.origin,
+            'Label': self.options.label,
+            'Description': self.options.description,
+            'Codename': self.options.codename,
+            'Sign': self.options.sign,
+        }
+        msg = json.dumps(rawMsg)
+        try:
+            req = urllib2.Request(url=url("/c/create"), data=msg)
+            f = urllib2.urlopen(req)
+            resp = json.loads(f.read())
+            print resp['name']
+            return True
+        except urllib2.URLError as exc:
+            print exc
+        except urllib2.HTTPError as exc:
+            print exc
+
+        return False
+
+
+class Delete(Command):
+    """Delete a given repo on the server"""
+
+    _cmd = ["delete"]
+    _args_usage = "<repo_name>"
+
+    def run(self):
+        if len(self.args) < 1:
+            self.usage("<repo_name> missing")
+        name = self.args[0]
+        try:
+            f = urllib2.urlopen(url("/c/delete/{}".format(name)))
+            print "Repo '{}' deleted.".format(name)
+            return True
+        except urllib2.URLError as exc:
+            print exc
+        except urllib2.HTTPError as exc:
+            print exc
+        return False
+
+
+class Add(Command):
+    """Add the specified .deb file to the specifed repo"""
+
+    _cmd = ["add", "include"]
+    _args_usage = "<repo_name> <path_to_deb>"
+
+    def run(self):
+        if len(self.args) < 2:
+            self.usage("missing argument")
+
+        repo, deb_path = self.args[:3]
+        deb = os.path.basename(deb_path)
+
+        print "add {} to {}".format(deb, repo)
+        f = open(deb_path, "rb")
+        conn = httplib.HTTPConnection(options.host, options.port)
+        u = url("/c/include/{}/{}".format(repo, deb))
+        try:
+            conn.request('POST', u, body=f)
+        except socket.error as exc:
+            print exc
+            return False
+        f.close()
+        r = conn.getresponse()
+        if r.status != 200:
+            print "Error: {} - {}".format(r.status, r.reason)
+            return False
+        return True
+
+
+class Url(Command):
+    """Display the URL for the specified repo, this does not contact the
+       server, so the URL may not actually exist."""
+
+    _cmd = ["url"]
+    _args_usage = "<repo_name>"
+
+    def run(self):
+        if len(self.args) < 1:
+            self.usage("missing argument")
+
+        name = self.args[0]
+
+        print url("/r/{}".format(name))
+        return True
+
+
+class KeyUrl(Command):
+    """Ask the server where we can find the public key for the named repo"""
+
+    _cmd = ["keyurl", "key"]
+    _args_usage = "<repo_name>"
+
+    def run(self):
+        if len(self.args) < 1:
+            self.usage("missing argument")
+
+        name = self.args[0]
+
+        try:
+            f = urllib2.urlopen(url("/c/key/{}".format(name)))
+            resp = json.loads(f.read())
+            print url(resp['filename'])
+            return True
+        except urllib2.URLError as exc:
+            print exc
+        except urllib2.HTTPError as exc:
+            print exc
+        return False
+
+
+class Packages(Command):
+    """Ask the server what packages are in the named repo"""
+
+    _cmd = ["packages"]
+    _args_usage = "<repo_name>"
+
+    def setup_option_parser(self):
+        self.parser.add_option('-v', '--verbose', action='store_true')
+        self.parser.add_option('-r', '--raw', action='store_true')
+
+    def run(self):
+        if len(self.args) < 1:
+            self.usage("missing argument")
+
+        name = self.args[0]
+
+        try:
+            f = urllib2.urlopen(url("/c/packages/{}".format(name)))
+            raw = f.read()
+            resp = json.loads(raw)
+        except urllib2.URLError as exc:
+            print exc
+            return False
+        except urllib2.HTTPError as exc:
+            print exc
+            return False
+
+        if self.options.raw:
+            print raw
+            return True
+
+        if self.options.verbose:
+            for name, details in resp['packages'].items():
+                print name
+                for version, arches in details.items():
+                    print "  {}: {}".format(version, ", ".join(arches))
+            return True
+
+        for name in resp['packages'].keys():
+            print name
+
+        return True
+
+
+class Remove(Command):
+    """Remove the specified package from the named repo"""
+
+    _cmd = ["remove", "rm"]
+    _args_usage = "<repo_name> <package_name> <package_version>"
+
+    def setup_option_parser(self):
+        self.parser.add_option('-a', '--arch', action='append')
+
+    def run(self):
+        if len(self.args) < 3:
+            self.usage("missing argument")
+
+        repo, name, version = self.args[0], self.args[1], self.args[2]
+
+        req = {
+            'name': name,
+            'version': version,
+            'arches': self.options.arch,
+        }
+
+        msg = json.dumps(req)
+        try:
+            f = urllib2.urlopen(url("/c/remove/{}".format(repo)), data=msg)
+            print "Package '{}' (v{}) deleted.".format(name, version)
+            return True
+        except urllib2.URLError as exc:
+            print exc
+        except urllib2.HTTPError as exc:
+            print exc
+        return False
+
+
+class List(Command):
+    """List the available repos"""
+
+    _cmd = ["list"]
+
+    def setup_option_parser(self):
+        self.parser.add_option('-v', '--verbose', action='store_true')
+        self.parser.add_option('-r', '--raw', action='store_true')
+
+    def run(self):
+        try:
+            f = urllib2.urlopen(url("/c/list"))
+        except urllib2.URLError as exc:
+            print exc
+            return False
+        except urllib2.HTTPError as exc:
+            print exc
+            return False
+
+        if self.options.raw:
+            print f.read().strip()
+            return True
+
+        resp = json.loads(f.read())
+        if self.options.verbose:
+            prev = False
+            for name, details in resp['repos'].items():
+                if prev:
+                    print
+                prev = True
+                print name
+                print "="*len(name)
+                print "  URL: {}".format(url("/r/{}".format(name)))
+                print "  Origin: {}".format(details['origin'])
+                print "  Label: {}".format(details['label'])
+                print "  Description: {}".format(details['description'])
+                print "  Codename: {}".format(details['codename'])
+                print "  Signed: {}".format(details['sign'])
+            return True
+
+        for name in resp['repos'].keys():
+            print name
+
+        return True
+
+
+def usage():
+    sys.exit(1)
+
+
+def verbose(msg):
+    if options.verbose:
+        print "  .. %s" % msg
+
+
+def fatal_error(msg=''):
+    print >> sys.stderr, "fatal: %s" % msg
+    sys.exit(1)
+
+
+def main():
+    global options
+
+    parser = optparse.OptionParser(usage="%prog [options] <command> [command-options] [command-arguments]", version=version)
+
+    parser.disable_interspersed_args()
+
+    default_host = "127.0.0.1"
+    default_port = 8080
+
+    config_file = os.path.join(os.environ['HOME'], ".repo_client")
+    if os.path.exists(config_file):
+        config = {}
+        execfile(config_file, {}, config)
+        default_host = config.get('host', default_host)
+        default_port = config.get('port', default_port)
+
+    parser.add_option('', '--commands', action='store_true',
+                      help='show list of available commands')
+    parser.add_option('-v', '--verbose', action='store_true',
+                      help='show more verbose output')
+    parser.add_option('-H', '--host', default=default_host,
+                      help='IP address or hostname of server')
+    parser.add_option('-p', '--port', default=default_port, type="int",
+                      help='Port number of server')
+
+    options, args = parser.parse_args()
+
+    if options.commands:
+        print 'available commands:'
+        for command in sorted(commands):
+            if command in aliases:
+                continue
+            alias = ''
+            if command in aliased:
+                alias = ' (%s)' % ', '.join(aliased[command])
+            print '  %s%s' % (command, alias)
+
+    if len(args) < 1:
+        usage()
+
+    command = args.pop(0)
+    if command not in commands:
+        fatal_error('unknown command: %s' % command)
+
+    commands[command](options, args)
+
+
+if __name__ == "__main__":
+    main()

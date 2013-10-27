@@ -1,0 +1,167 @@
+# EXAMPLE CONFIGURATION FILE
+# ==========================
+#
+# This is an example configration file for the repository server.  The settings
+# for each setting are the default values used when that setting is not present
+# in the config file.
+
+# listen
+# ------
+#
+# The listening configuration for the HTTP server.
+#
+#  e.g. :8080          - all interfaces on port 8080
+#       127.0.0.1:8080 - localhost only on port 8080
+#
+listen: :8080
+
+# manage-only
+# -----------
+#
+# This controls whether repositories are server via HTTP, or just managed.
+#
+# If true, then the HTTP interface only exposes the control API, and can only
+# be used to manage repositories.  This is intended for use when the
+# repositories will be served via other means (e.g. apache/nginx).
+#
+# If false, then the HTTP interface will also expose the files and repos paths
+# (configured below) at the server root and /r/ respectively.
+#
+# Regardless of this setting, the control API is exposed as /c/.
+#
+manage-only: false
+
+# keyring
+# -------
+#
+# The path to the keyring file that stores the keys that will be used for
+# signing purposes (i.e. default-key and and signing-key should exist in this
+# keyring file).
+#
+# This keyring should be an openpgp secret keyring file - as used by gpg.
+#
+keyring: keyring
+
+# default-key
+# -----------
+#
+# The ID of the default key, which will be used to perform signing, unless
+# there is a different key specified for a particular repository.  In
+# particular this key will be used for all client created repositories.
+#
+# This setting has no default value, and will prevent creating signed
+# repositories if it is not set.
+#
+default-key: <keyid>
+
+# repos
+# -----
+#
+# This is a sequence of repositories that should be managed by the tool.  These
+# repositories can have .debs uploaded and removed, but they cannot be created
+# or deleted by the client.
+#
+# The name should not start with a '@' - which denotes an automatically created
+# repository.  This is not currently enforced, but may be in the future.
+#
+# The default value of this sequence is empty, but in this file we will
+# populate it with some examples.
+#
+# This is a yaml sequence of mappings so each repos consists of set of indented
+# keywords & values preceded by a - (see example 2.4 in the YAML spec:
+# http://www.yaml.org/spec/1.2/spec.html#id2759963).
+#
+repos:
+
+  # Example Repo 1
+  # --------------
+  #
+  # This is an example of a managed signed repository.  If the repository
+  # configuration does not match this (e.g. the config is updated after the
+  # repository has already been created) then the repository will be updated to
+  # match.
+  #
+  # The name cannot be changed, as it is used to find the repository on disk.
+  # If the signing-key is changed the repository will NOT be resigned (at
+  # least, not until a new .deb is uploaded).  Any uploaded .debs will NOT be
+  # resigned either (until they are re-uploaded on an individual basis).
+  #
+  # If sign is true, and signing-key is not set, then default-key will be used.
+  # If neither signing-key or default-key is set then an error will raised.
+  #
+  - name: example1
+    origin: Example Repo God
+    codename: raring
+    label: example-one
+    description: An Example Signed Repository
+    sign: true
+    signing-key: 1234ABCD
+
+  # Example Repo 2
+  # --------------
+  #
+  # This is an example of a managed unsigned repository.  If the repository
+  # configuration does not match this (e.g. the config is updated after the
+  # repository has already been created) then the repository will be updated to
+  # match.
+  #
+  # The name cannot be changed, as it is used to find the repository on disk.
+  # If signing is enabled, no change will be enacted until a new .deb is
+  # uploaded, and no existing .deb will be signed.
+  #
+  - name: example2
+    origin: Example Repo God
+    codename: raring
+    label: example-two
+    description: An Example Unsigned Repository
+
+# path
+# ----
+#
+# This is a grouping of the path configuration for various storage areas.
+# All the sub settings must be indented (i.e. path is a yaml mapping).
+#
+path:
+
+  # cwd
+  # ---
+  #
+  # Control the current working directory, the server will change to this
+  # directory before doing anything else.
+  #
+  cwd: .
+
+  # files
+  # -----
+  #
+  # This directory is where files for the base HTTP site are stored.  In
+  # particulr any public keys will be written to this directory so they can be
+  # downloaded by clients for importing into apt keyrings.
+  #
+  # If manage-only is set to true, then this directory will still be created,
+  # and public key files will be written here - but it will not be exposed via
+  # the HTTP server.  If you want users to have access to the generated key
+  # files, then that will have to be arranged separately (or set manage-only to
+  # false).
+  #
+  files: files
+
+  # repos
+  # -----
+  #
+  # This directory is where the actual repositories are stored.  Each
+  # repositroy is stored in its own directory which forms the name of the
+  # repository.  This is also where the names.dat file which tracks
+  # auto-generated names is stored.
+  #
+  repos: repos
+
+  # tmp
+  # ---
+  #
+  # This directory is where temporary files are stored.  Primarily this is the
+  # .deb files that are uploaded by the user, before they are processed and
+  # moved into the actual repository storage area.
+  #
+  tmp: tmp
+

@@ -1,0 +1,90 @@
+#!/bin/bash
+
+set -e
+
+if [ -z "$1" ]; then
+    echo "usage: $0 <datadir> [keyring]"
+    exit 1
+fi
+
+keyring="keyring"
+if [ ! -z "$2" ]; then
+    keyring="$2"
+fi
+
+dir="$(dirname "$0")"
+dir="$(cd "${dir}"; pwd)"
+
+base="$(dirname "${dir}")"
+datadir="$1"
+version="$(${dir}/version)"
+name="repo_server"
+
+sed_script="s|@@datadir@@|${datadir}|g;s|@@version@@|${version}|g;s|@@name@@|${name}|g"
+
+echo "Build ${name} RPM: v${version}"
+echo
+
+echo "Run some checks ..."
+rpmbuild="$(which rpmbuild 2>/dev/null)"
+if [ -z "${rpmbuild}" ]; then
+    echo "  unable to find rpmbuild!"
+    exit 1
+fi
+if [ ! -f "${base}/${name}" ]; then
+    echo "  ${name} has not been built!"
+    exit 1
+fi
+if [ ! -f "${base}/config.yml" ]; then
+    echo "  ${name} has not been configured!"
+    exit 1
+fi
+if [ ! -f "${base}/${keyring}" ]; then
+    echo "  keyring (${keyring}) does not exist!"
+    exit 1
+fi
+
+echo "Create .rpmmacros ..."
+cat > ${dir}/.rpmmacros << EOF
+%_topdir ${dir}
+%_smp_mflags  -j3
+%__arch_install_post   /usr/lib/rpm/check-rpaths   /usr/lib/rpm/check-buildroot
+EOF
+
+echo "Create rpmbuild tree ..."
+(cd ${dir}; mkdir -p BUILD BUILDROOT RPMS SOURCES SPECS SRPMS TARBUILD)
+
+echo "Create .spec file ..."
+sed -e "${sed_script}" "${dir}/template.spec" > "${dir}/SPECS/${name}.spec"
+
+echo "Collate files ..."
+tarsrc="${dir}/TARBUILD/${name}-${version}"
+mkdir -p "${tarsrc}"
+
+cp "${base}/${name}" "${tarsrc}"
+cp "${base}/config.yml" "${tarsrc}"
+cp "${base}/${keyring}" "${tarsrc}"
+sed -e "${sed_script}" "${dir}/template.init" > "${tarsrc}/${name}.init"
+chmod +x "${tarsrc}/${name}.init"
+
+cat > "${tarsrc}/sysconfig" << EOF
+# Set the base directory to ${datadir}
+OPTIONS="-dir=${datadir}"
+EOF
+
+echo "Create source tarball ..."
+tar zcf "${dir}/SOURCES/${name}-${version}.tar.gz" -C "${dir}/TARBUILD" "${name}-${version}"
+
+macros="/usr/lib/rpm/macros:/usr/lib/rpm/redhat/macros:/etc/rpm/macros:${dir}/.rpmmacros"
+
+echo "Run rpmbuild ..."
+rpmbuild --quiet --macros="${macros}" -bb "SPECS/${name}.spec"
+
+echo "Retrieve .rpm file ..."
+cp "${dir}/RPMS/x86_64/${name}-${version}-1.x86_64.rpm" "${dir}"
+
+echo "Remove rpmbuild tree ..."
+(cd ${dir}; rm -r BUILD BUILDROOT RPMS SOURCES SPECS SRPMS TARBUILD)
+
+echo "Remove .rpmmacros file ..."
+rm "${dir}/.rpmmacros"

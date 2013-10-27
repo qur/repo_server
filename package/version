@@ -1,0 +1,26 @@
+#!/bin/bash
+
+v="$(git describe --always --dirty 2>/dev/null)"
+case "${v}" in
+    *-dirty)
+        echo "Working copy is dirty!  Commit your changes!" >&2
+        exit 1
+        ;;
+    *)
+        ;;
+esac
+
+version=$(git describe --exact-match --match='v*' HEAD 2>/dev/null)
+if [ "$?" -eq "0" ]; then
+    echo "${version#v}"
+    exit 0
+fi
+
+rev="$(git rev-parse --short HEAD)"
+if [ "$?" -eq "0" ]; then
+    echo "9999.${rev}"
+    exit 0
+fi
+
+echo "Unable to determine version!" >&2
+exit 1
