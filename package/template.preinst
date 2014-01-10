@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# Make sure dpkg gets notified of any errors
+set -e
+
+# creating @@group@@ group if he isn't already there
+if ! getent group @@group@@ >/dev/null; then
+    addgroup --system @@group@@
+fi
+
+# creating @@user@@ user if he isn't already there
+if ! getent passwd @@user@@ >/dev/null; then
+    adduser --system --ingroup @@group@@ --home "@@datadir@@" @@user@@
+    usermod -c "@@package@@ daemon,,," @@user@@
+    usermod -d "@@datadir@@" @@user@@
+    usermod -g "@@group@@" @@user@@
+    usermod -s "/bin/false" @@user@@
+fi
+
+# Success - reached the end
+exit 0

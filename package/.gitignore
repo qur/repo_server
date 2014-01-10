@@ -7,3 +7,4 @@ SRPMS
 TARBUILD
 .rpmmacros
 *.rpm
+*.deb

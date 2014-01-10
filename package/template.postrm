@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# Make sure dpkg gets notified of any errors
+set -e
+
+if [ "$1" = "purge" ] ; then
+    mkdir -p /old
+    if getent passwd @@user@@ >/dev/null; then
+        if [ -x /usr/sbin/deluser ]; then
+            deluser --system @@user@@
+        fi
+    fi
+    if getent group @@group@@ >/dev/null; then
+        if [ -x /usr/sbin/delgroup ]; then
+            delgroup --system @@group@@
+        fi
+    fi
+fi
+
+# Success - reached the end
+exit 0

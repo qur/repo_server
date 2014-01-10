@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# Make sure dpkg gets notified of any errors
+set -e
+
+chown -R @@user@@:@@group@@ "@@datadir@@"
+
+if [ -e "/etc/init/@@package@@.conf" ]; then
+    stop @@package@@ > /dev/null || true
+    start @@package@@ || exit $?
+fi
+
+# Success - reached the end
+exit 0

@@ -1,0 +1,8 @@
+# Go panics are more useful when binary isn't stripped
+repo-server binary: unstripped-binary-or-object
+
+# Go produces static binarys
+repo-server binary: statically-linked-binary
+
+# We don't have a changelog file ...
+repo-server binary: changelog-file-missing-in-native-package

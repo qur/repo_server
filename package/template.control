@@ -1,0 +1,9 @@
+Package: @@package@@
+Section: web
+Priority: extra
+Maintainer: Julian Phillips <julian@quantumfyre.co.uk>
+Version: @@version@@
+Architecture: amd64
+Depends: adduser
+Description: Dynamic Ubuntu Repository Server
+ A Dynamic Ubuntu Repository Server

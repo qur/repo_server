@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# Make sure dpkg gets notified of any errors
+set -e
+
+function is_running() {
+    local name="$1"
+
+    status "$name" | grep running >/dev/null 2>&1
+    local ret=$?
+
+    return $ret
+}
+
+if [ -e "/etc/init/@@package@@.conf" ] && is_running @@package@@; then
+    stop @@package@@ || exit $?
+fi
+
+# Success - reached the end
+exit 0
