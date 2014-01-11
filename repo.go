@@ -32,6 +32,7 @@ type RepoConfig struct {
 	Label       string `json:"label"`
 	Description string `json:"description"`
 	Codename    string `json:"codename"`
+	Component   string `json:"component"`
 	Sign        bool   `json:"sign"`
 	GpgKey      string `json:"gpgkey"`
 }
@@ -73,6 +74,7 @@ func newRepo(name string) *Repo {
 			Label:       "<label>",
 			Description: "<description>",
 			Codename:    "<codename>",
+			Component:   "main",
 			Sign:        false,
 			GpgKey:      "",
 		},
@@ -128,6 +130,10 @@ func UpdateSharedRepo(name string, settings map[string]string) error {
 	val, ok = settings["codename"]
 	if ok {
 		repo.Config.Codename = val
+	}
+	val, ok = settings["component"]
+	if ok {
+		repo.Config.Component = val
 	}
 	val, ok = settings["sign"]
 	if ok {
@@ -267,7 +273,7 @@ func (r *Repo) parseDeb(debPath string) error {
 		log.Printf("deb did not include architecture: %s\n", debPath)
 		return fmt.Errorf("no architecture in %s", debPath)
 	}
-	base := fmt.Sprintf("pool/main/%s/%s/", pkgName[0:1], pkgName)
+	base := fmt.Sprintf("pool/%s/%s/%s/", r.Config.Component, pkgName[0:1], pkgName)
 	debName := fmt.Sprintf("%s_%s_%s.deb", pkgName, version, arch)
 	pkg.Filename = filepath.Join(base, debName)
 	filename := filepath.Join(repoPath, r.Name, pkg.Filename)
@@ -362,7 +368,7 @@ func (r *Repo) Remove(name, version, arch string) error {
 	}
 	// remove file from pool
 	debName := fmt.Sprintf("%s_%s_%s.deb", name, version, arch)
-	path := filepath.Join(repoPath, r.Name, "pool", "main", name[0:1], name, debName)
+	path := filepath.Join(repoPath, r.Name, "pool", r.Config.Component, name[0:1], name, debName)
 	err := os.Remove(path)
 	if os.IsNotExist(err) {
 		return nil
@@ -449,7 +455,7 @@ func (r *Repo) writeRelease() error {
 	s += fmt.Sprintf("Codename: %s\n", r.Config.Codename)
 	s += fmt.Sprintf("Date: %s\n", time.Now().UTC().Format("Mon, 02 Jan 2006 15:04:05 MST"))
 	s += fmt.Sprintf("Architectures: i386 amd64\n")
-	s += fmt.Sprintf("Components: main\n")
+	s += fmt.Sprintf("Components: %s\n", r.Config.Component)
 	s += fmt.Sprintf("Description: %s\n", r.Config.Description)
 	_, err = f.WriteString(s + md5 + sha1 + sha256)
 	if err != nil {
@@ -469,7 +475,7 @@ func (r *Repo) writeRelease() error {
 }
 
 func (r *Repo) writeDeepRelease(name, arch string) error {
-	path := filepath.Join(repoPath, r.Name, "dists", r.Config.Codename, "main", name)
+	path := filepath.Join(repoPath, r.Name, "dists", r.Config.Codename, r.Config.Component, name)
 	err := os.MkdirAll(path, 0755)
 	if err != nil {
 		log.Printf("Failed to create directory '%s': %s\n", path, err)
@@ -483,7 +489,7 @@ func (r *Repo) writeDeepRelease(name, arch string) error {
 	}
 	defer f.Close()
 	hw := NewHashWriter(f)
-	s := fmt.Sprintf("Component: main\n")
+	s := fmt.Sprintf("Component: %s\n", r.Config.Component)
 	s += fmt.Sprintf("Origin: %s\n", r.Config.Origin)
 	s += fmt.Sprintf("Label: %s\n", r.Config.Label)
 	s += fmt.Sprintf("Architecture: %s\n", arch)
@@ -498,7 +504,7 @@ func (r *Repo) writeDeepRelease(name, arch string) error {
 }
 
 func (pg PackageGroup) writePackages(r *Repo, name string) error {
-	path := filepath.Join(repoPath, r.Name, "dists", r.Config.Codename, "main", name)
+	path := filepath.Join(repoPath, r.Name, "dists", r.Config.Codename, r.Config.Component, name)
 	err := os.MkdirAll(path, 0755)
 	if err != nil {
 		log.Printf("Failed to create directory '%s': %s\n", path, err)

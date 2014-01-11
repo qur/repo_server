@@ -89,6 +89,7 @@ class Create(Command):
         self.parser.add_option('-l', '--label', default='<label>')
         self.parser.add_option('-d', '--description', default='<description>')
         self.parser.add_option('-c', '--codename', default=None)
+        self.parser.add_option('-m', '--component', default='main')
         self.parser.add_option('-s', '--sign', action='store_true', default=False)
 
     def run(self):
@@ -99,6 +100,7 @@ class Create(Command):
             'Label': self.options.label,
             'Description': self.options.description,
             'Codename': self.options.codename,
+            'Component': self.options.component,
             'Sign': self.options.sign,
         }
         msg = json.dumps(rawMsg)
