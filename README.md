@@ -23,10 +23,8 @@ provided as example_config.yml
 installation
 ------------
 
-A script for creating an RPM for installtion on RedHat systems is provided.  In
-order to run this script the desired default config.yml file and gpg keyring
-must have been created.  The script is then run specifying where the RPM
+Scripts are provided for building RedHat targeted RPMs and Ubuntu targeted debs
+in the package directory.  In order to run these scripts the desired default
+config.yml file and gpg keyring must have been created in addition to having
+built the repo_server executable.  The script is then run specifying where the
 installed service should look for its data files.
-
-A similar script for Ubuntu is planned, but does not currently exist.  An
-example upstart config file is provided in the init directory though.
