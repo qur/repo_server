@@ -308,27 +308,37 @@ func (r *Repo) parseDeb(debPath string) error {
 	pkg.Sha256 = hw.Sha256()
 	pkg.Md5 = hw.Md5()
 
-	var pkgs map[string]PackageSet
-	switch strings.ToLower(arch) {
-	case "i386":
-		pkgs = r.Packages.I386
-	case "amd64":
-		pkgs = r.Packages.Amd64
-	case "source":
-		pkgs = r.Packages.Source
-	default:
-		log.Printf("Unsupported architecture: %s\n", arch)
-		return fmt.Errorf("Unsupported arch: %s", arch)
+	arches, err := r.getArch(arch)
+	if err != nil {
+		return err
 	}
 
-	set, found := pkgs[pkgName]
-	if !found {
-		set = make(PackageSet)
+	for _, pkgs := range arches {
+		set, found := pkgs[pkgName]
+		if !found {
+			set = make(PackageSet)
+		}
+		set[version] = pkg
+		pkgs[pkgName] = set
 	}
-	set[version] = pkg
-	pkgs[pkgName] = set
 
 	return r.Save()
+}
+
+func (r *Repo) getArch(arch string) ([]map[string]PackageSet, error) {
+	switch strings.ToLower(arch) {
+	case "i386":
+		return []map[string]PackageSet{r.Packages.I386}, nil
+	case "amd64":
+		return []map[string]PackageSet{r.Packages.Amd64}, nil
+	case "all":
+		return []map[string]PackageSet{r.Packages.I386, r.Packages.Amd64}, nil
+	case "source":
+		return []map[string]PackageSet{r.Packages.Source}, nil
+	default:
+		log.Printf("Unsupported architecture: %s\n", arch)
+		return nil, fmt.Errorf("Unsupported arch: %s", arch)
+	}
 }
 
 func (r *Repo) Add(debPath string) error {
