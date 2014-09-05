@@ -34,6 +34,7 @@ type RepoConfig struct {
 	Codename    string `json:"codename"`
 	Component   string `json:"component"`
 	Sign        bool   `json:"sign"`
+	SignDebs    bool   `json:"sign_debs"`
 	GpgKey      string `json:"gpgkey"`
 }
 
@@ -76,6 +77,7 @@ func newRepo(name string) *Repo {
 			Codename:    "<codename>",
 			Component:   "main",
 			Sign:        false,
+			SignDebs:    false,
 			GpgKey:      "",
 		},
 		Packages: RepoPackages{
@@ -142,7 +144,14 @@ func UpdateSharedRepo(name string, settings map[string]string) error {
 			return err
 		}
 	}
-	if repo.Config.Sign {
+	val, ok = settings["sign-debs"]
+	if ok {
+		repo.Config.SignDebs, err = strconv.ParseBool(val)
+		if err != nil {
+			return err
+		}
+	}
+	if repo.Config.Sign || repo.Config.SignDebs {
 		val, ok = settings["signing-key"]
 		if ok {
 			repo.Config.GpgKey = val
@@ -215,7 +224,7 @@ func (r *Repo) storeHashes(path string, hw *HashWriter) {
 }
 
 func (r *Repo) signDeb(debPath string) error {
-	if !r.Config.Sign {
+	if !r.Config.SignDebs {
 		return nil
 	}
 	d, err := deb.Open(debPath)

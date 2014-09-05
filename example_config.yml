@@ -86,8 +86,9 @@ repos:
   # least, not until a new .deb is uploaded).  Any uploaded .debs will NOT be
   # resigned either (until they are re-uploaded on an individual basis).
   #
-  # If sign is true, and signing-key is not set, then default-key will be used.
-  # If neither signing-key or default-key is set then an error will raised.
+  # If sign or sign-debs is true, and signing-key is not set, then default-key
+  # will be used.  If neither signing-key or default-key is set then an error
+  # will raised.
   #
   - name: example1
     origin: Example Repo God
@@ -95,6 +96,7 @@ repos:
     label: example-one
     description: An Example Signed Repository
     sign: true
+    sign-debs: false
     signing-key: 1234ABCD
 
   # Example Repo 2
