@@ -11,9 +11,9 @@ import (
 	"os"
 	"strconv"
 
-	"code.google.com/p/go.crypto/openpgp"
-	"code.google.com/p/go.crypto/openpgp/armor"
-	"code.google.com/p/go.crypto/openpgp/clearsign"
+	"golang.org/x/crypto/openpgp"
+	"golang.org/x/crypto/openpgp/armor"
+	"golang.org/x/crypto/openpgp/clearsign"
 )
 
 var KeyringFile = "keyring"
