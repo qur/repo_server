@@ -548,21 +548,24 @@ func (pg PackageGroup) writePackages(r *Repo, name string) error {
 		return err
 	}
 	defer f2.Close()
-	g := gzip.NewWriter(f2)
-	defer g.Close()
-	gzHw := NewHashWriter(g)
+	hw2 := NewHashWriter(f2)
+	gzHw := gzip.NewWriter(hw2)
 	w := io.MultiWriter(hw, gzHw)
 	for name := range pg {
 		for version := range pg[name] {
 			pkg := pg[name][version]
 			err := pkg.appendTo(w)
 			if err != nil {
+				gzHw.Close()
 				return err
 			}
 		}
 	}
+	// We must close the gzip writer so all its output goes to the HashWriter.
+	// A flush is not sufficient (extra bytes get written on Close).
+	gzHw.Close()
 	r.storeHashes(filename, hw)
-	r.storeHashes(gzFilename, gzHw)
+	r.storeHashes(gzFilename, hw2)
 	return nil
 }
 

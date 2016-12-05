@@ -53,23 +53,39 @@ rm -rf $RPM_BUILD_ROOT
 
 %pre
 /bin/mkdir -p "$(dirname "@@datadir@@")"
-/usr/sbin/useradd -c "Repo Server" -d @@datadir@@ -m -r -U repo
+if [ $1 -eq 1 ]; then
+    # New Install
+    /usr/sbin/useradd -c "Repo Server" -d @@datadir@@ -m -r -U repo
+else
+    # Upgrade
+    /sbin/service @@name@@ stop
+fi
 
 
 %post
-/sbin/chkconfig --add @@name@@
-/sbin/chkconfig @@name@@ on
+if [ $1 -eq 1 ]; then
+    # New Install
+    /sbin/chkconfig --add @@name@@
+    /sbin/chkconfig @@name@@ on
+fi
 /sbin/service @@name@@ start
 
 
 %preun
-/sbin/service @@name@@ stop
-/sbin/chkconfig @@name@@ off
-/sbin/chkconfig --del @@name@@
+if [ $1 -eq 0 ]; then
+    # Uninstall
+    /sbin/service @@name@@ stop
+    /sbin/chkconfig @@name@@ off
+    /sbin/chkconfig --del @@name@@
+fi
 
 
 %postun
-/usr/sbin/userdel repo
+if [ $1 -eq 0 ]; then
+    /usr/sbin/userdel repo
+fi
 
 
 %changelog
+* Fri Dec 2 2016 Stuart Websper
+- Fixed calculation of SHA256 / MD5SUM for Packages.gz
