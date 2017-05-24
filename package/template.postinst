@@ -5,7 +5,7 @@ set -e
 
 chown -R @@user@@:@@group@@ "@@datadir@@"
 
-if [ -e "/lib/systemd/system/@@package@@.conf" ]; then
+if [ -e "/lib/systemd/system/@@package@@.service" ]; then
     # Start the service running
     systemctl --system daemon-reload >/dev/null || true
     systemctl enable @@package@@.service >/dev/null
