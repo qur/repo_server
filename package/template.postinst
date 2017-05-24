@@ -5,9 +5,11 @@ set -e
 
 chown -R @@user@@:@@group@@ "@@datadir@@"
 
-if [ -e "/etc/init/@@package@@.conf" ]; then
-    stop @@package@@ > /dev/null || true
-    start @@package@@ || exit $?
+if [ -e "/lib/systemd/system/@@package@@.service" ]; then
+    # Start the service running
+    systemctl --system daemon-reload >/dev/null || true
+    systemctl enable @@package@@.service >/dev/null
+    systemctl start @@package@@.service >/dev/null
 fi
 
 # Success - reached the end

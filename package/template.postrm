@@ -3,6 +3,9 @@
 # Make sure dpkg gets notified of any errors
 set -e
 
+# Refresh systemd to pick up changes
+systemctl --system daemon-reload >/dev/null || true
+
 if [ "$1" = "purge" ] ; then
     mkdir -p /old
     if getent passwd @@user@@ >/dev/null; then

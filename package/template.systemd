@@ -1,0 +1,23 @@
+[Unit]
+Description=A Dynamic Ubuntu Repository Server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/@@name@@ -dir="@@datadir@@"
+User=@@user@@
+WorkingDirectory=@@datadir@@
+TimeoutStopSec=5
+Restart=on-failure
+
+StandardOutput=journal
+StandardError=journal
+
+PrivateDevices=yes
+ProtectHome=yes
+ProtectSystem=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target
